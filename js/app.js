@@ -1,7 +1,10 @@
-// API Base URL (Relative path for Vercel & Local)
-const API_BASE = '/api';
+// Static Data Mode
+const DATA_FILE = 'film.json';
+const TV_FILE = 'tv.json';
 
 // State
+let allFilmsData = [];
+let allTVData = [];
 let currentPage = 1;
 let currentType = 'film';
 let currentFilters = {};
@@ -19,146 +22,224 @@ const closeFilterBtn = document.getElementById('closeFilter');
 const genreFilter = document.getElementById('genreFilter');
 const yearFilter = document.getElementById('yearFilter');
 const ratingFilter = document.getElementById('ratingFilter');
+const countryFilter = document.getElementById('countryFilter');
 const applyFilterBtn = document.getElementById('applyFilter');
 const resetFilterBtn = document.getElementById('resetFilter');
 const statsEl = document.getElementById('stats');
 
 // Init
-document.addEventListener('DOMContentLoaded', () => {
-    loadStats();
-    loadFilms();
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadInitialData();
     setupEventListeners();
 });
 
-// Setup event listeners
-function setupEventListeners() {
-    searchBtn.addEventListener('click', handleSearch);
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSearch();
-    });
-
-    toggleFilterBtn.addEventListener('click', () => {
-        filterSidebar.classList.add('open');
-    });
-
-    closeFilterBtn.addEventListener('click', () => {
-        filterSidebar.classList.remove('open');
-    });
-
-    applyFilterBtn.addEventListener('click', handleFilter);
-    resetFilterBtn.addEventListener('click', handleResetFilter);
-
-    // Nav links
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            if (link.getAttribute('href') === '#tv') {
-                e.preventDefault();
-                switchToTV();
-            }
-        });
-    });
-}
-
-// Load stats untuk populate filters & dropdowns
-async function loadStats() {
-    try {
-        const response = await fetch(`${API_BASE}/stats`);
-        const data = await response.json();
-
-        // Populate Dropdowns & Sidebar Filters
-        populateDropdown('genreDropdown', 'genreFilter', data.genres, 'genre');
-        populateDropdown('yearDropdown', 'yearFilter', data.years, 'year');
-        populateDropdown('countryDropdown', 'countryFilter', data.countries, 'country');
-
-        // Update stats display
-        const statsText = statsEl ? statsEl : document.getElementById('stats');
-        if (statsText) {
-            statsText.textContent = `${data.totalFilms.toLocaleString()} Films • ${data.totalTV.toLocaleString()} TV Series`;
-        }
-    } catch (error) {
-        console.error('Error loading stats:', error);
-    }
-}
-
-// Helper: Populate Dropdown & Select
-function populateDropdown(dropdownId, selectId, items, type) {
-    const dropdown = document.getElementById(dropdownId);
-    const select = document.getElementById(selectId);
-
-    if (!items) return;
-
-    items.sort().forEach(item => {
-        // Dropdown Link
-        if (dropdown) {
-            const link = document.createElement('a');
-            link.href = '#';
-            link.textContent = item;
-            link.onclick = (e) => {
-                e.preventDefault();
-                applyQuickFilter(type, item);
-            };
-            dropdown.appendChild(link);
-        }
-
-        // Sidebar Select
-        if (select) {
-            const option = document.createElement('option');
-            option.value = item;
-            option.textContent = item;
-            select.appendChild(option);
-        }
-    });
-}
-
-// Quick Filter from Dropdown
-function applyQuickFilter(type, value) {
-    currentFilters = {}; // Reset other filters
-    currentFilters[type] = value;
-    currentSearch = '';
-
-    // Update Sidebar UI to match
-    if (type === 'genre' && genreFilter) genreFilter.value = value;
-    if (type === 'year' && yearFilter) yearFilter.value = value;
-
-    currentPage = 1;
-    loadFilms(1);
-
-    // Scroll to grid
-    window.scrollTo({ top: 300, behavior: 'smooth' });
-}
-
-// Load films
-async function loadFilms(page = 1) {
+// Load Data Once
+async function loadInitialData() {
     showLoading(true);
-
     try {
-        const params = new URLSearchParams({
-            page,
-            limit: 20,
-            ...(currentSearch && { q: currentSearch }),
-            ...currentFilters
-        });
+        const [filmsRes, tvRes] = await Promise.all([
+            fetch(DATA_FILE),
+            fetch(TV_FILE)
+        ]);
 
-        const endpoint = currentType === 'film' ? 'films' : 'tv';
-        const response = await fetch(`${API_BASE}/${endpoint}?${params}`);
-        const result = await response.json();
+        allFilmsData = await filmsRes.json();
+        allTVData = await tvRes.json();
 
-        renderFilms(result.data);
-        renderPagination(result.pagination);
+        // Calculate Stats Dynamically
+        calculateAndShowStats();
 
-        currentPage = page;
+        // Initial Render
+        renderCurrentPage();
+
     } catch (error) {
-        console.error('Error loading films:', error);
-        if (filmsGrid) filmsGrid.innerHTML = '<p style="text-align:center; color:#b3b3b3;">Gagal memuat data. Pastikan backend server berjalan.</p>';
+        console.error('Error loading data:', error);
+        if (filmsGrid) filmsGrid.innerHTML = '<p style="text-align:center;">Gagal memuat database film.</p>';
     } finally {
         showLoading(false);
     }
 }
 
-// Render films grid
+// Calculate Stats
+function calculateAndShowStats() {
+    const allItems = [...allFilmsData, ...allTVData];
+    const genres = new Set();
+    const years = new Set();
+    const countries = new Set();
+
+    allItems.forEach(item => {
+        if (item.genre) item.genre.split(',').forEach(g => genres.add(g.trim()));
+        if (item.year) years.add(item.year);
+        if (item.country) countries.add(item.country.trim());
+    });
+
+    if (statsEl) {
+        statsEl.textContent = `${allFilmsData.length.toLocaleString()} Films • ${allTVData.length.toLocaleString()} TV Series`;
+    }
+
+    populateDropdown('genreDropdown', 'genreFilter', Array.from(genres), 'genre');
+    populateDropdown('yearDropdown', 'yearFilter', Array.from(years).sort().reverse(), 'year');
+    populateDropdown('countryDropdown', 'countryFilter', Array.from(countries), 'country');
+}
+
+// Main Render Logic
+function renderCurrentPage() {
+    showLoading(true);
+
+    // 1. Select Data
+    let data = currentType === 'film' ? allFilmsData : allTVData;
+
+    // 2. Filter & Search
+    let filtered = filterData(data);
+
+    // 3. Paginate
+    const limit = 20;
+    const totalPages = Math.ceil(filtered.length / limit);
+    const start = (currentPage - 1) * limit;
+    const paginated = filtered.slice(start, start + limit);
+
+    // 4. Render
+    renderFilms(paginated);
+    renderPagination({
+        page: currentPage,
+        totalPages: totalPages,
+        hasPrev: currentPage > 1,
+        hasNext: currentPage < totalPages
+    });
+
+    showLoading(false);
+}
+
+// Filter Logic
+function filterData(data) {
+    let result = [...data];
+
+    // Search
+    if (currentSearch) {
+        const q = currentSearch.toLowerCase();
+        result = result.filter(item =>
+            (item.title && item.title.toLowerCase().includes(q)) ||
+            (item.genre && item.genre.toLowerCase().includes(q))
+        );
+    }
+
+    // Filters
+    if (currentFilters.genre) {
+        result = result.filter(item => item.genre && item.genre.toLowerCase().includes(currentFilters.genre.toLowerCase()));
+    }
+    if (currentFilters.year) {
+        result = result.filter(item => item.year == currentFilters.year); // non-strict eq
+    }
+    if (currentFilters.country) {
+        result = result.filter(item => item.country && item.country.toLowerCase().includes(currentFilters.country.toLowerCase()));
+    }
+    if (currentFilters.rating) { // "7+" -> 7
+        const minRating = parseFloat(currentFilters.rating);
+        if (!isNaN(minRating)) {
+            result = result.filter(item => parseFloat(item.rating) >= minRating);
+        }
+    }
+
+    return result;
+}
+
+// ... EVENT LISTENERS & UI HELPERS (Same as before but calling renderCurrentPage) ...
+
+function setupEventListeners() {
+    searchBtn && searchBtn.addEventListener('click', handleSearch);
+    searchInput && searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSearch();
+    });
+
+    toggleFilterBtn && toggleFilterBtn.addEventListener('click', () => filterSidebar.classList.add('open'));
+    closeFilterBtn && closeFilterBtn.addEventListener('click', () => filterSidebar.classList.remove('open'));
+
+    applyFilterBtn && applyFilterBtn.addEventListener('click', handleFilter);
+    resetFilterBtn && resetFilterBtn.addEventListener('click', handleResetFilter);
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            if (link.getAttribute('href') === '#tv') {
+                e.preventDefault();
+                currentType = 'tv';
+                currentPage = 1;
+                renderCurrentPage();
+                updateNavActive(link);
+            }
+            if (link.getAttribute('href') === '#film') { // If present
+                e.preventDefault();
+                currentType = 'film';
+                currentPage = 1;
+                renderCurrentPage();
+                updateNavActive(link);
+            }
+        });
+    });
+}
+
+function updateNavActive(activeLink) {
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    activeLink.classList.add('active');
+}
+
+function handleSearch() {
+    if (!searchInput) return;
+    currentSearch = searchInput.value.trim();
+    currentPage = 1;
+    renderCurrentPage();
+}
+
+function handleFilter() {
+    currentFilters = {};
+    if (genreFilter && genreFilter.value) currentFilters.genre = genreFilter.value;
+    if (yearFilter && yearFilter.value) currentFilters.year = yearFilter.value;
+    if (ratingFilter && ratingFilter.value) currentFilters.rating = ratingFilter.value;
+    if (countryFilter && countryFilter.value) currentFilters.country = countryFilter.value;
+
+    currentPage = 1;
+    renderCurrentPage();
+    if (filterSidebar) filterSidebar.classList.remove('open');
+}
+
+function handleResetFilter() {
+    currentFilters = {};
+    currentSearch = '';
+    if (searchInput) searchInput.value = '';
+    if (genreFilter) genreFilter.value = '';
+    if (yearFilter) yearFilter.value = '';
+    if (ratingFilter) ratingFilter.value = '';
+    if (countryFilter) countryFilter.value = '';
+
+    currentPage = 1;
+    renderCurrentPage();
+    if (filterSidebar) filterSidebar.classList.remove('open');
+}
+
+function applyQuickFilter(type, value) {
+    currentFilters = {};
+    currentFilters[type] = value;
+    currentSearch = '';
+
+    // Update Sidebar
+    if (type === 'genre' && genreFilter) genreFilter.value = value;
+    if (type === 'year' && yearFilter) yearFilter.value = value;
+    if (type === 'country' && countryFilter) countryFilter.value = value;
+
+    currentPage = 1;
+    // Auto switch to film
+    currentType = 'film';
+    renderCurrentPage();
+    window.scrollTo({ top: 300, behavior: 'smooth' });
+}
+
+function goToPage(page) {
+    currentPage = page;
+    renderCurrentPage();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// UI Renders
 function renderFilms(films) {
     if (!filmsGrid) return;
-
     if (!films || films.length === 0) {
         filmsGrid.innerHTML = '<p style="text-align:center; color:#b3b3b3; grid-column: 1/-1;">Tidak ada film ditemukan.</p>';
         return;
@@ -189,113 +270,60 @@ function renderFilms(films) {
     `).join('');
 }
 
-// Render pagination
 function renderPagination(pag) {
     if (!pagination) return;
-
-    if (!pag || pag.totalPages <= 1) {
+    if (pag.totalPages <= 1) {
         pagination.innerHTML = '';
         return;
     }
 
     let buttons = [];
+    buttons.push(`<button class="page-btn" onclick="goToPage(${pag.page - 1})" ${!pag.hasPrev ? 'disabled' : ''}>←</button>`);
 
-    // Previous button
-    buttons.push(`
-        <button 
-            class="page-btn" 
-            onclick="loadFilms(${pag.page - 1})"
-            ${!pag.hasPrev ? 'disabled' : ''}
-        >←</button>
-    `);
-
-    // Page numbers logic (simplified)
     const startPage = Math.max(1, pag.page - 2);
     const endPage = Math.min(pag.totalPages, startPage + 4);
 
     for (let i = startPage; i <= endPage; i++) {
-        buttons.push(`
-            <button 
-                class="page-btn ${i === pag.page ? 'active' : ''}" 
-                onclick="loadFilms(${i})"
-            >${i}</button>
-        `);
+        buttons.push(`<button class="page-btn ${i === pag.page ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`);
     }
 
-    // Next button
-    buttons.push(`
-        <button 
-            class="page-btn" 
-            onclick="loadFilms(${pag.page + 1})"
-            ${!pag.hasNext ? 'disabled' : ''}
-        >→</button>
-    `);
-
+    buttons.push(`<button class="page-btn" onclick="goToPage(${pag.page + 1})" ${!pag.hasNext ? 'disabled' : ''}>→</button>`);
     pagination.innerHTML = buttons.join('');
 }
 
-// Handle search
-function handleSearch() {
-    if (!searchInput) return;
-    currentSearch = searchInput.value.trim();
-    currentPage = 1;
-    loadFilms(1);
-}
+function populateDropdown(dropdownId, selectId, items, type) {
+    const dropdown = document.getElementById(dropdownId);
+    const select = document.getElementById(selectId);
+    if (!items) return;
 
-// Handle filter
-function handleFilter() {
-    currentFilters = {};
+    if (dropdown) dropdown.innerHTML = '';
+    if (select) select.innerHTML = '<option value="">Semua</option>';
 
-    if (genreFilter && genreFilter.value) currentFilters.genre = genreFilter.value;
-    if (yearFilter && yearFilter.value) currentFilters.year = yearFilter.value;
-    if (ratingFilter && ratingFilter.value) currentFilters.rating = ratingFilter.value;
-
-    currentPage = 1;
-    loadFilms(1);
-    if (filterSidebar) filterSidebar.classList.remove('open');
-}
-
-// Reset filter
-function handleResetFilter() {
-    currentFilters = {};
-    currentSearch = '';
-    if (searchInput) searchInput.value = '';
-    if (genreFilter) genreFilter.value = '';
-    if (yearFilter) yearFilter.value = '';
-    if (ratingFilter) ratingFilter.value = '';
-
-    currentPage = 1;
-    loadFilms(1);
-    if (filterSidebar) filterSidebar.classList.remove('open');
-}
-
-// Switch to TV
-function switchToTV() {
-    currentType = 'tv';
-    currentPage = 1;
-    currentFilters = {};
-    currentSearch = '';
-    if (searchInput) searchInput.value = '';
-
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href') === '#tv') {
-            link.classList.add('active');
+    items.sort().forEach(item => {
+        if (dropdown) {
+            const link = document.createElement('a');
+            link.href = '#';
+            link.textContent = item;
+            link.onclick = (e) => {
+                e.preventDefault();
+                applyQuickFilter(type, item);
+            };
+            dropdown.appendChild(link);
+        }
+        if (select) {
+            const option = document.createElement('option');
+            option.value = item;
+            option.textContent = item;
+            select.appendChild(option);
         }
     });
-
-    loadFilms(1);
 }
 
-// Show/hide loading
 function showLoading(show) {
     if (loading) loading.style.display = show ? 'block' : 'none';
     if (filmsGrid) filmsGrid.style.display = show ? 'none' : 'grid';
 }
 
-// Element helpers
-const countryFilter = document.getElementById('countryFilter');
-const countryDropdown = document.getElementById('countryDropdown');
-const genreDropdown = document.getElementById('genreDropdown');
-const yearDropdown = document.getElementById('yearDropdown');
-
+// Expose functions globally for HTML onclick
+window.loadFilms = goToPage; // Backward compat if needed
+window.goToPage = goToPage;
