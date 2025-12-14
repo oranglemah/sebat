@@ -3,6 +3,9 @@ import cors from 'cors';
 import fs from 'fs/promises';
 import path from 'path';
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -17,36 +20,24 @@ const ROOT_DIR = process.cwd();
 app.use('/css', express.static(path.join(ROOT_DIR, 'css')));
 app.use('/js', express.static(path.join(ROOT_DIR, 'js')));
 
-// Data cache
+// Data cache - Load immediately for Serverless context
 let filmsData = [];
 let tvData = [];
 
-// Load JSON data
-async function loadData() {
-    try {
-        const filmsPath = path.join(ROOT_DIR, 'film.json');
-        const tvPath = path.join(ROOT_DIR, 'tv.json');
-
-        const filmsRaw = await fs.readFile(filmsPath, 'utf-8');
-        const tvRaw = await fs.readFile(tvPath, 'utf-8');
-
-        filmsData = JSON.parse(filmsRaw);
-        tvData = JSON.parse(tvRaw);
-        console.log(`✅ Loaded ${filmsData.length} films`);
-        console.log(`✅ Loaded ${tvData.length} TV series`);
-    } catch (error) {
-        console.error('❌ Error loading data:', error.message);
-        // Fallback or empty
-    }
+try {
+    // Using require ensures Vercel bundles these files
+    filmsData = require('../film.json');
+    tvData = require('../tv.json');
+    console.log(`✅ Loaded ${filmsData.length} films`);
+    console.log(`✅ Loaded ${tvData.length} TV series`);
+} catch (error) {
+    console.error('❌ Error loading data:', error.message);
+    filmsData = [];
+    tvData = [];
 }
 
-// Middleware to ensure data is loaded
-app.use(async (req, res, next) => {
-    if (filmsData.length === 0 && tvData.length === 0) {
-        await loadData();
-    }
-    next();
-});
+// Middleware not needed for loading anymore as it's synchronous
+
 
 // Helper: Paginate array
 function paginate(array, page = 1, limit = 20) {
