@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageTitle">Loading... | KURO FILM</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="brand">
+                    <h1 class="logo"><a href="/" style="text-decoration:none; color:var(--primary);">KURO FILM</a></h1>
+                    <p class="slogan">gratisan boy</p>
+                </div>
+
+                <nav class="nav">
+                    <a href="/" class="nav-link">← Kembali ke Beranda</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main detail-page">
+        <div class="container">
+            <!-- Loading State -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Loading gratisan...</p>
+            </div>
+
+            <!-- Detail Content -->
+            <div class="detail-content" id="detailContent" style="display: none;">
+                <!-- Video Player -->
+                <div class="video-player" id="videoPlayer"></div>
+
+                <!-- Film Info -->
+                <div class="film-info">
+                    <h1 class="film-title" id="filmTitle"></h1>
+
+                    <div class="film-meta">
+                        <span class="rating" id="filmRating"></span>
+                        <span class="year" id="filmYear"></span>
+                        <span class="duration" id="filmDuration"></span>
+                    </div>
+
+                    <div class="film-tags" id="filmTags"></div>
+
+                    <div class="film-details">
+                        <div class="detail-row">
+                            <strong>Genre:</strong>
+                            <span id="filmGenre"></span>
+                        </div>
+                        <div class="detail-row">
+                            <strong>Negara:</strong>
+                            <span id="filmCountry"></span>
+                        </div>
+                        <div class="detail-row">
+                            <strong>Sutradara:</strong>
+                            <span id="filmDirector"></span>
+                        </div>
+                        <div class="detail-row">
+                            <strong>Cast:</strong>
+                            <span id="filmCast"></span>
+                        </div>
+                    </div>
+
+                    <div class="film-synopsis">
+                        <h3>Sinopsis</h3>
+                        <p id="filmSynopsis"></p>
+                    </div>
+                </div>
+
+                <!-- Related Films -->
+                <div class="related-section">
+                    <h2>Mungkin lo suka juga</h2>
+                    <div class="films-grid" id="relatedFilms"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 KURO FILM. Gratisan Boy.</p>
+        </div>
+    </footer>
+
+    <script src="js/detail.js"></script>
+</body>
+
+</html>
