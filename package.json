@@ -1,7 +1,7 @@
 {
   "name": "kuro-film-static",
   "version": "1.0.0",
-  "description": "Nonton Film Gratisan Boy - KURO FILM (Static Version)",
+  "description": "Nonton Film Gratisan Bre - SAMBAT FILM (Static Version)",
   "scripts": {
     "start": "npx serve ."
   },
