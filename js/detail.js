@@ -67,7 +67,7 @@ async function loadInitialDataAndFind(searchSlug) {
 
 function renderDetail(film) {
     // Title
-    document.getElementById('pageTitle').textContent = `${film.title} | KURO FILM`;
+    document.getElementById('pageTitle').textContent = `${film.title} | SAMBAT FILM`;
     document.getElementById('filmTitle').textContent = film.title;
 
     // Metadata
@@ -94,7 +94,7 @@ function renderDetail(film) {
     if (film.videoPlayerUrl) {
         playerContainer.innerHTML = `
             <div class="server-select" style="margin-bottom: 10px; display: flex; gap: 10px;">
-                <button class="server-btn active" onclick="changeServer('default', '${film.videoPlayerUrl}')">Server 1 (Kuro)</button>
+                <button class="server-btn active" onclick="changeServer('default', '${film.videoPlayerUrl}')">Server 1 (sambat)</button>
                 <button class="server-btn" id="btnServer2" onclick="findAndPlayAlternate('${film.title}', '${film.year}')">Server 2 (ViP)</button>
             </div>
             <div id="playerFrameContainer" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #000;">
